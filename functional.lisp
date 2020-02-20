@@ -139,7 +139,7 @@
     (when (atom? next) ; a function variable
       (setf next `(call ,next ~)))
     (when (find (car next) '(quote function))	;; => 'func #'func func are all OK
-      (setf next `(,next ~)))
+      (setf next `(,(second next) ~)))
     (unless (find ~ next)
       (insert* ~ next))
     `(=> ,(substitute init ~ next) ,@others)))    ;; Can't use subst, should not deep replace
