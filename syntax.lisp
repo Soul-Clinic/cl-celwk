@@ -37,112 +37,120 @@
              (var-name (n)
                (read-from-string (input "~c~s" separator (1+ n)))))
       (parse code)
-      ;; (print (find (read-from-string "$") (flatten code)))
-      `(^,(append (ntimes count #'var-name)
-                  '(&aux)
-                  (when (find (read-from-string "$") (flatten code))
-                    ;; Must use read-from-string instead of '$ for dynamic/context namespace
-                    (read-from-string "(($ $1))"))	;; $ => $1 for short
-                  (let ((count-var (var-name -1)))
-                    (when (find count-var (flatten code))
-                      `((,count-var ,count)))))	;; &aux (%0 count)
-         ,code)))
+      (let ((args (ntimes count #'var-name))
+            ($ (read-from-string "$")) ;; Must use read-from-string instead of '$ for dynamic/context namespace
+            (acount (read-from-string "$0")))
+        ;; $ and $1 can't appear at the together
+        (when (find $ (flatten code))
+          (setf (car args) $))
+        (when (find acount (flatten code))
+          (setf args (append args '(&aux) `((,acount ,count)))))
+        `(^,args ,code))))
+        ;; `(^,(append (ntimes count #'var-name)
+        ;;             '(&aux)
+        ;;             (when (find (read-from-string "$") (flatten code))
+        ;;               ;; Must use read-from-string instead of '$ for dynamic/context namespace
+        ;;               (read-from-string "(($ $1))"))	;; $ => $1 for short
+        ;;             (let ((count-var (var-name -1)))
+        ;;               (when (find count-var (flatten code))
+        ;;                 `((,count-var ,count)))))	;; &aux (%0 count)
+        ;;    ,code)))
 
-  (defun key-to-symbol-symbol (key)
-    ":can => 'can"
-    (read-from-string (concat "'" (subseq (write-to-string key) 1))))
+    (defun key-to-symbol-symbol (key)
+      ":can => 'can"
+      (read-from-string (concat "'" (subseq (write-to-string key) 1))))
 
-  (defun dollar-sign (stream &rest chars)
-    "$(+ 1 $1) => (^($1) (+ 1 $1)
+    (defun dollar-sign (stream &rest chars)
+      "$(+ 1 $1) => (^($1) (+ 1 $1)
   $abc => |$ABC| (as normal)
   ab$c or abc$ are illegal"
-    (declare (ignore chars))
-    (let ((code (read stream)))
-      (if (atom code)
-          (if (keyword? code)
-              (list 'list code (key-to-symbol-symbol code))
-              ;; (append '(apple) $:test) => (apple :test test)
-              ;; (list 'apple $:test) => (apple (:test test))
-              (intern (string-upcase (input "$~s" code))))
-          (parse-to-lambda code))))
+      (declare (ignore chars))
+      (let ((code (read stream)))
+        (if (atom code)
+            (if (keyword? code)
+                (list 'list code (key-to-symbol-symbol code))
+                ;; (append '(apple) $:test) => (apple :test test)
+                ;; (list 'apple $:test) => (apple (:test test))
+                (intern (string-upcase (input "$~s" code))))
+            (parse-to-lambda code))))
 
-  ;; (set-macro-character #\$ #'dollar-sign)
-  (set-dispatch-macro-character #\# #\$ #'dollar-sign)
+    ;; (set-macro-character #\$ #'dollar-sign)
+    (set-dispatch-macro-character #\# #\$ #'dollar-sign)
 
-  
-  (defun percent-sign (stream &rest chars)
-    ;; (call  #%(list @ 4 5 6) 1 2 3)    => ((1 2 3) 4 5 6)
-    ;; (apply #%(list @ 4 5 6) '(1 2 3)) => ((1 2 3) 4 5 6)
-    ;; (apply #%(append @ '(4 5 6)) '(1 2 3)) => (1 2 3 4 5 6)  
-    (declare (ignore chars))
-    (let ((code (read stream)))
-      (if (atom code)
-          (intern (string-upcase (input "%~s" code))) ;; As normal
-          `(^(&rest *) ,code))))
-  (set-dispatch-macro-character #\# #\% #'percent-sign))
-;; Global exported! No need to be added in package export
+    
+    (defun percent-sign (stream &rest chars)
+      ;; (call  #%(list @ 4 5 6) 1 2 3)    => ((1 2 3) 4 5 6)
+      ;; (apply #%(list @ 4 5 6) '(1 2 3)) => ((1 2 3) 4 5 6)
+      ;; (apply #%(append @ '(4 5 6)) '(1 2 3)) => (1 2 3 4 5 6)  
+      (declare (ignore chars))
+      (let ((code (read stream)))
+        (if (atom code)
+            (intern (string-upcase (input "%~s" code))) ;; As normal
+            `(^(&rest *) ,code))))
+    (set-dispatch-macro-character #\# #\% #'percent-sign))
+  ;; Global exported! No need to be added in package export
 
 
-"Fail: Can't return multiple separated elements (like ,@) by set-macro-character
+  "Fail: Can't return multiple separated elements (like ,@) by set-macro-character
 *:default => :default default  Only:  *:default => (:default default)
 *:name => :name name
 cd ~/Develop/Lisp/mine && fl ':(\w+) \1'
 "
 
-(defmacro delimit (left right parms &body body)
-  `(ddfn ,left ,right #'(lambda ,parms ,@body)))
+  (defmacro delimit (left right parms &body body)
+    `(ddfn ,left ,right #'(lambda ,parms ,@body)))
 
-(defun ddfn (left right fn)
-  (set-macro-character right (get-macro-character #\) ))
-  (set-dispatch-macro-character #\# left
-                                (^(stream char1 char2)
-                                  (declare (ignore char1 char2))
-                                  (apply fn (read-delimited-list right stream t)))))
-(delimit #\{ #\} (&rest fns)
-  "FNS must be function symbol, exclude lambda"
-  `(pipe~ ,@fns))
-;; `(pipe~ ,@(mapcar (^(fn) (sharpened-symbol fn)) fns))
-;; #{fn1 fn2} => (pipe~ fn1 fn2)
+  (defun ddfn (left right fn)
+    (set-macro-character right (get-macro-character #\) ))
+    (set-dispatch-macro-character #\# left
+                                  (^(stream char1 char2)
+                                    (declare (ignore char1 char2))
+                                    (apply fn (read-delimited-list right stream t)))))
+  (delimit #\{ #\} (&rest fns)
+    "FNS must be function symbol, exclude lambda"
+    `(pipe~ ,@fns))
+  ;; `(pipe~ ,@(mapcar (^(fn) (sharpened-symbol fn)) fns))
+  ;; #{fn1 fn2} => (pipe~ fn1 fn2)
 
-(defun $cancel-macor-char (char)
-  (set-macro-character char nil))
+  (defun $cancel-macor-char (char)
+    (set-macro-character char nil))
 
-(defun $cancel-dispatch-macor-char (char1 char2)
-  "#\# #\[ or  #\# #\{   =>?  #\# #\] necessary?"
-  (set-dispatch-macro-character char1 char2 nil))
-
-
-(defun series (to &key (from 1))
-  "(series 4) => (1 2 3 4)"
-  (loop :for i :from from :to to
-     collect i))
-
-;; (delimit #\[ #\] (from to)
-;;   "Including FROM & TO: #[1 4] => (1 2 3 4)"
-;;   (if (find-if-not #$(number? $1) (list from to))
-;;       `(series ,to :from ,from)
-;;       `(quote ,(series to :from from))))	; => `'(,@(series (1+ to) :from from))))
+  (defun $cancel-dispatch-macor-char (char1 char2)
+    "#\# #\[ or  #\# #\{   =>?  #\# #\] necessary?"
+    (set-dispatch-macro-character char1 char2 nil))
 
 
+  (defun series (to &key (from 1))
+    "(series 4) => (1 2 3 4)"
+    (loop :for i :from from :to to
+       collect i))
+
+  ;; (delimit #\[ #\] (from to)
+  ;;   "Including FROM & TO: #[1 4] => (1 2 3 4)"
+  ;;   (if (find-if-not #$(number? $1) (list from to))
+  ;;       `(series ,to :from ,from)
+  ;;       `(quote ,(series to :from from))))	; => `'(,@(series (1+ to) :from from))))
 
 
 
-(defun if~ (if then &optional else)
-  "(call (if~ 'odd? #'print #$(+ 10 $1)) 123) "
-  #%(if (apply if *)
-        (apply then *)
-        (if else (apply else *))))
 
-(defmacro if+ (test~ then~ var)
-  `(call (if~ ',test~ ',then~ 'identity) ,var))
 
-(defmacro if* (test then &optional else)
-  "Auto save the TEST result to `it'"
+  (defun if~ (if then &optional else)
+    "(call (if~ 'odd? #'print #$(+ 10 $1)) 123) "
+    #%(if (apply if *)
+          (apply then *)
+          (if else (apply else *))))
+
+  (defmacro if+ (test~ then~ var)
+    `(call (if~ ',test~ ',then~ 'identity) ,var))
+
+  (defmacro if* (test then &optional else)
+    "Auto save the TEST result to `it'"
     ;; Otherwise it will be celwk::it !!
     ;; (read-from-string...) depeneds on evaling context
-  (let ((it (read-from-string "it")))
-    `(let ((,it ,test))
-       (if ,it ,then ,else))))
-;; (if* (gethash xx yy)
-;;      (output it))
+    (let ((it (read-from-string "it")))
+      `(let ((,it ,test))
+         (if ,it ,then ,else))))
+  ;; (if* (gethash xx yy)
+  ;;      (output it))
 

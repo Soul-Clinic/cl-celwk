@@ -9,6 +9,7 @@
     (subseq args 0 (count-general-args args)))
 
   (defun getf* (lst key &key (test #'equal) from-end)
+    "Like GETF, but also get when the KEY is in even? number of LST"
     (if* (position key lst :test test :from-end from-end)
          (nth (1+ it) lst)))
   ;; (getf '(xx p1 p2 &rest rest &key k1 k2) '&rest)  => nil
@@ -20,50 +21,36 @@
       (setf (getf total :general) (general-args alist)
             (getf total :rest) (getf* alist '&rest)
             (getf total :key) (rest (member '&key alist)))
-      ;; (mapcar #'symbol-to-key (rest (member '&key alist))))
       total))
-  ;; (defun! .. &rest ... &key ...)
-  (defmacro defun! (fn params &body code)
-    "Define a function whose rest & key don't mixture(exclusive).
- Disavantage: function specific args won't be showed (only a &rest) on SLIME mini-buffer"
-    (destructuring-bind (&key general rest key) (arg-list params)
-      `(defun ,fn (&rest args)
-         (destructuring-bind (,@general ,rest &key ,@key)
-             (multiple-value-bind (rest keys) (apply #'general-&-keys (subseq args ,(length general)))
-               (nconc (subseq args 0 ,(length general)) (list rest) keys))
-           ,@code)))))
+  (defun general-&-keys (&rest rest)
+    "(general-&-keys 21 34 'yo :oo 5 :xx 99 88)
+ => (21 34 yo 88)	;; Including rest
+	(:oo 5 :xx 99)"
+    (do ((i 0) lst keys)
+        ((>= i (length rest))
+         (values (nreverse lst) keys))
+      (let ((value (elt rest i)))
+        (if (keywordp value)
+            (progn
+              (setf keys (nconc keys (subseq rest i (+ i 2)))) ;; => (:k1 xx :k2 cc)
+              (incf i 2))
+            (and (push value lst)
+                 (incf i))))))
 
-;; (defun-exclusive-rest test-fn (a b c &rest o &key k1 k2)
+  ;; (defun@ .. &rest ... &key ...)
+  (defmacro @defun (fn params &body code)
+    "Define a function whose rest & key don't mixture(exclusive). No optional"
+    (destructuring-bind (&key general rest key) (arg-list params)
+      `(defun ,fn (,@general &rest @rest-&-keys@)	;; Use gensym if don't want visible
+         (destructuring-bind (,rest &key ,@key)
+             (multiple-value-bind (rest keys)
+                 (apply #'general-&-keys @rest-&-keys@)
+               (nconc (list rest) keys))
+           ,@code)))))
+;; (@defun test-fn (a b c &rest o &key k1 k2)
 ;;   (list a b c :rest o :k1 k1 :k2 k2))
 ;; (test-fn 1 3 5 8 9 :k1 'kk1 :k2 'kk2 999)
 ;; => (1 3 5 :rest (8 9 999) :k1 kk1 :k2 kk2)
-
-(defun general-&-keys (&rest rest)
-  "(general-&-keys 21 34 'yo :oo 5 :xx 99 88)
- => (21 34 yo 88)
-	(:oo 5 :xx 99)"
-  (do ((i 0) lst keys)
-      ((>= i (length rest))
-       (values (nreverse lst) keys))
-    (let ((value (elt rest i)))
-      (if (keywordp value)
-          (progn
-            (setf keys (nconc keys (subseq rest i (+ i 2)))) ;; => (:k1 xx :k2 cc)
-            (incf i 2))
-          (and (push value lst)
-               (incf i))))))
-
-;; ($output "functional.lisp: TODO: 1. Distinguish the args' types: normal/optional/rest/key")
-;; (defun funargs (fn)
-;;   (let ((args (sb-introspect:function-lambda-list fn))
-;;         default
-;;         optional
-;;         key
-;;         rest)	;; &body &allow-other-keys?
-;;     ()))
-;; Then alias macro
-;; Then optimize `alias' as well, show the aliases' arguments
-
 
 
 (defun memorize~ (fn &optional test)	;; test maybe provided of nil
@@ -72,7 +59,8 @@
     #%(multiple-value-bind (value cached?) (gethash * cache)
         (values-list (if cached?
                          value ;;(and (princ "Cached") val)
-                         (setf (gethash * cache) (multiple-value-list (apply fn *))))))))
+                         (setf (gethash * cache)
+                               (multiple-value-list (apply fn *))))))))
 
 (defmacro build-memorized (new fn &optional (test 'equal))
   "Memorize function FN to function NEW"
@@ -104,7 +92,8 @@
 (defun is~ (x &key (test #'equal))
   #$(call test x $1))
 
-(defun! in~ (&rest sequence &key (test #'equal))
+(@defun in~ (&rest sequence &key (test #'equal))
+  "(call (in~ 1 2 :test #$(= $ (* $2 10)) 3 4 5) 40) => 4"
   #$(find $1 sequence :test test))
 
 (defun bind~ (fn &rest params)

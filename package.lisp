@@ -1,3 +1,5 @@
+(require 'sb-introspect)
+
 (defpackage :celwk
   (:use :cl
         :cl-ppcre
@@ -71,7 +73,7 @@
    #:fetch
    #:function-name
 
-   #:defun! ;; With &key and &rest exclusive
+   #:@defun ;; With &key and &rest exclusive
    #:defun+ ;; Define a function with same name function parameter
    #:defun&
    
@@ -259,4 +261,7 @@
    ;; => Trivial
    #:local-time
    #:time-of-universal
-   #:now))
+   #:now
+
+   ;; => Math
+   #:calculus))

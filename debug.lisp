@@ -10,8 +10,8 @@
      (output ,fmt ,@args)
      (input  ,fmt ,@args)))
 
-;; defun! => defun with both &rest & &key [functional.lisp]
-(defun! $output (control-string &rest format-args &key (width 80))
+;; @defun => defun with both &rest & &key [functional.lisp]
+(@defun $output (control-string &rest format-args &key (width 80))
   "($output `Hello, Coder ~a` `Can` :width 70)"
   (output "~&~a~%~a~&~2:*~a~%"
          (string-repeat "=" width)
