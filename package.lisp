@@ -59,11 +59,15 @@
    #:previous-matches
    #:memorize~
    #:reversed~
-   #:curry~   #:*~  #:**~
+   #:curry~   #:*~
    #:compose~ #:<~
    #:pipe~	  #:~>
-   #:call-pipe 	  #:<<
-   #:call-compose #:>>
+   #:call-pipe 	  
+   #:call-compose
+
+   #:>>	#:=>
+   #:<<
+
    #:always~
    #:is~
    #:bind~

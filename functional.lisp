@@ -121,20 +121,37 @@
     (call (apply '<~ fns) arg)))
 
 (defun call-pipe (arg &rest fns)
-  "The first one is arg of the piping functions"
+  "The first one is arg of the piping functions => curry + pipe "
   (call (apply '~> fns) arg))
 
 
 (<=> curry~ *~)
 (<=> compose~ <~)
 (<=> pipe~ ~>)
-(<=> call-compose <<)
-(<=> call-pipe >>)
+;; (<=> call-compose <<)
+;; (<=> call-pipe >>)
 
-(defmacro *~~ (fn &rest init)
-  "Like curry~, but the first arg of fn can be a symbol without #\'.
-So FN must be name of function, can't be a function variable name "
-  `(*~ ,(output-symbol fn) ,@init))
+(defmacro => (init &rest codes)
+  "~ for arg and can be recursive/embed"
+  (unless codes
+    (return-from => init))
+  (destructuring-bind (next . others) codes
+    (when (atom? next) ; a function variable
+      (setf next `(call ,next ~)))
+    (when (find (car next) '(quote function))	;; => 'func #'func func are all OK
+      (setf next `(,next ~)))
+    (unless (find ~ next)
+      (insert* ~ next))
+    `(=> ,(substitute init ~ next) ,@others)))    ;; Can't use subst, should not deep replace
+(alias >> =>)
+
+(defmacro << (&rest codes)
+  `(=> ,@(nreverse codes)))
+
+;; (defmacro *~~ (fn &rest init)
+;;   "Like curry~, but the first arg of fn can be a symbol without #\'.
+;; So FN must be name of function, can't be a function variable name "
+;;   `(*~ ,(output-symbol fn) ,@init))
 
 
 (defmacro memorize-curry (fn (currying-fn &rest init))
@@ -166,16 +183,15 @@ So FN must be name of function, can't be a function variable name "
   "Union functions
 (call (or~ #$(> $1 2) #$(+ $1 10)) -19) => -9
 (call (or~ #$(> $1 2) #$(+ $1 10)) 7)   => t"
-  #%(dolist (fn1 fns)
-      (if* (apply fn1 *)
+  #%(dolist (fn fns)
+      (if* (apply fn *)
            (return it))))
 
-
-(defun fetch (sth &rest args)
+(defun fetch (fn-or-value &rest args)
   "Get the value. Examples: (fetch 123) (fetch #'now)"
-  (if (fn? sth)
-      (apply sth args)
-      sth))
+  (if (fn? fn-or-value)
+      (apply fn-or-value args)
+      fn-or-value))
 
 (defun function-name (fn)
   (string-downcase (symbol-name (nth-value 2 (function-lambda-expression fn)))))
