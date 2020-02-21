@@ -35,10 +35,10 @@
   (car (last lst)))
 
 (defun unified-elements? (lst &optional (test 'equal))
-  (not (find-if-not #$(call test (aref lst 0) $1) lst)))
+  (not (find-if-not $(call test (aref lst 0) $1) lst)))
 
 (defun same-length? (&rest lists)
-  (not (find-if-not #$(= (length (first lists)) (length $1)) lists)))
+  (not (find-if-not $(= (length (first lists)) (length $1)) lists)))
 ;; (zero? (call #'length-diff lst1 lst2)))
 
 (defun separate-list (elt-length lst &aux (count-result (ceiling (/ (length lst) elt-length))) result)
@@ -65,7 +65,7 @@
 (destructuring-bind (a b &optional c) '(1 2)
      (ifnils! (a 10) (b 30) (c 50))
      (list a b c)) => (1 2 50)"
-  `(progn ,@(mapcar #$(destructuring-bind (var val) $1 `(ifnil! ,var ,val))
+  `(progn ,@(mapcar $(destructuring-bind (var val) $1 `(ifnil! ,var ,val))
                     vlst)))
 
 (defun single? (lst)
@@ -73,7 +73,7 @@
 
 (defun group-by (fn lst &key (test #'equal) (out #'list))
   (let ((hash (make-hash-table :test test)))
-    (mapc #$(let ((key (call fn $1)))
+    (mapc $(let ((key (call fn $1)))
               (unless (gethash key hash)
                 (setf (gethash key hash) ()))
               (push $1 (gethash key hash)))
@@ -128,7 +128,7 @@
 ;; ======================================================================
 (defun map+ (fn &rest lsts)
   "Deeply mapcar "
-  (apply #'mapcar #%(if (atom? (car *))
+  (apply #'mapcar %(if (atom? (car *))
                         (apply fn *)
                         (apply #'map+ fn *))
          lsts))
@@ -142,7 +142,7 @@
              (let* (($count (length lsts))
                     ($output (repeat $count '())))
                (dotimes (i (length (car lsts)))
-                 (let ((items (mapcar #$(nth i $1) lsts)))
+                 (let ((items (mapcar $(nth i $1) lsts)))
                    (if (atom? (car items))
                        (when (apply fn items)
                          (dotimes (n $count)
@@ -156,7 +156,7 @@
   "Deep collect each item from lsts
   (parallel+ '(1 2 (3 4) 5) '(a b (c d) e) '(x x (x x) x))
   => ((1 a x) (2 b x) ((3 c x) (4 d x)) (5 e x))"
-  (apply #'mapcar #%(if (atom? (car *))
+  (apply #'mapcar %(if (atom? (car *))
                         *
                         (apply #'parallel+ *))
          lsts))
@@ -177,9 +177,9 @@
 
 
 (defun 1-to (n &optional (fn 'identity))
-  " (n-times 3 #$(+ 2 $1) t) => (3 4 5)  from 1 to n"
+  " (n-times 3 $(+ 2 $1) t) => (3 4 5)  from 1 to n"
   (let ((c (count-args fn)))
-    (mapcar #$(apply fn (when (= c 1) (list $1))) (series n))))
+    (mapcar $(apply fn (when (= c 1) (list $1))) (series n))))
 
 (defun 0-below (n)
   (loop for i below n collect i))
@@ -216,7 +216,7 @@
 
 (defun previous-matches (fn lst)
   "Separate by the first unmatched element:
- (previous-matches #$(< $1 5) '(1 3 4 5 6 7))  => (values (1 3 4) (5 6 7))"
+ (previous-matches $(< $1 5) '(1 3 4 5 6 7))  => (values (1 3 4) (5 6 7))"
   (let* ((matched (subseq lst 0 (position-if-not fn lst)))
          (rest (subseq lst (length matched))))
     (values matched rest)))

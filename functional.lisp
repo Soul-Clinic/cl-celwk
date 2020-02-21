@@ -1,7 +1,7 @@
 (in-package :celwk)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun count-general-args (args)
-    (or (position-if #$(find $1 lambda-list-keywords) args)
+    (or (position-if $(find $1 lambda-list-keywords) args)
         (length args)))
 
   (defun general-args (args)
@@ -56,7 +56,7 @@
 (defun memorize~ (fn &optional test)	;; test maybe provided of nil
   "Memorize means in virtue of previous Experience..."
   (let ((cache (make-hash-table :test (or test #'equal))))	;; Closure
-    #%(multiple-value-bind (value cached?) (gethash * cache)
+    %(multiple-value-bind (value cached?) (gethash * cache)
         (values-list (if cached?
                          value ;;(and (princ "Cached") val)
                          (setf (gethash * cache)
@@ -67,20 +67,20 @@
   `(setf (symbol-function ',new) (memorize~ #',fn #',test)))
 
 (defun reversed~ (fn)
-  #%(apply fn (nreverse *)))
+  %(apply fn (nreverse *)))
 
 (defun reduce~ (fn-x-next &optional init)
   "Build a recursive function 
   (reduce~ (^(x f) (if (f x) x (funcall f))))"
   (self (lst)
     (if lst
-        (call fn-x-next (car lst) #$(self (cdr lst)))
+        (call fn-x-next (car lst) $(self (cdr lst)))
         (fetch init))))
 
 (defun compose~ (&rest fns)
   (let ((fn1 (last* fns))
         (other-fns (butlast fns)))
-    #%(reduce #'call other-fns
+    %(reduce #'call other-fns
               :from-end t
               :initial-value (apply fn1 *))))
 
@@ -90,28 +90,28 @@
 (defun always~ (x) (^(&rest args) (declare (ignore args)) x))
 
 (defun is~ (x &key (test #'equal))
-  #$(call test x $1))
+  $(call test x $1))
 
 (@defun in~ (&rest sequence &key (test #'equal))
-  "(call (in~ 1 2 :test #$(= $ (* $2 10)) 3 4 5) 40) => 4"
-  #$(find $1 sequence :test test))
+  "(call (in~ 1 2 :test $(= $ (* $2 10)) 3 4 5) 40) => 4"
+  $(find $1 sequence :test test))
 
 (defun bind~ (fn &rest params)
   "(call (bind~ '+ 6 7) 10) "
-  #%(apply fn (append params *)))
+  %(apply fn (append params *)))
 
 (defun count-args (fn)
   (count-general-args (sb-introspect:function-lambda-list fn)))
 
 (defun curry~ (fn &rest init)
   "Use ~ for placeholder:
- (call (call (curry #'< 1 2 ~ 5 ~) ~ 6) 3) => t
+ (call (call (curry~ #'< 1 2 ~ 5 ~) ~ 6) 3) => t
  (call (curry~ #'format t) 'Hello ~a ~a' 'Apple' 'Boy')  "
   (let* ((n (max (length init)
                  (count-args fn)))
          (params (filled-list (repeat n ~) init ~)))
     (if (find ~ params)
-        #%(apply #'curry~ fn (filled-list params * ~))
+        %(apply #'curry~ fn (filled-list params * ~))
         (apply fn params))))
 
 (defun call-compose (&rest fns+arg)
@@ -174,16 +174,16 @@
   "Intersect of functions
 (call (and~ (*~ '> ~ 2) (*~ '< ~ 10)) 19) => nil
 (call (and~ (*~ '> ~ 2) (*~ '+ ~ 10)) 7)  => 17 "
-  #%(let (y)
+  %(let (y)
       (dolist (fn fns y)
         (setf y (apply fn *))
         (unless y (return)))))
 
 (defun or~ (&rest fns)
   "Union functions
-(call (or~ #$(> $1 2) #$(+ $1 10)) -19) => -9
-(call (or~ #$(> $1 2) #$(+ $1 10)) 7)   => t"
-  #%(dolist (fn fns)
+(call (or~ $(> $1 2) $(+ $1 10)) -19) => -9
+(call (or~ $(> $1 2) $(+ $1 10)) 7)   => t"
+  %(dolist (fn fns)
       (if* (apply fn *)
            (return it))))
 
