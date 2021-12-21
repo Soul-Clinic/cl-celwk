@@ -13,9 +13,16 @@
 ;; @defun => defun with both &rest & &key [functional.lisp]
 (@defun $output (control-string &rest format-args &key (width 80))
   "($output `Hello, Coder ~a` `Can` :width 70)"
-  (output "~&~a~%~a~&~2:*~a~%"
-         (string-repeat "=" width)
-         (apply #'format nil control-string format-args)))
+  (princ (input "~2&~a~%~a~&~2:*~a~%"
+                (string-repeat "=" width)
+                (apply #'format nil control-string format-args))))
 
-(defun manifest (&key (port 6666))
-  (manifest:start :port port))
+(defmacro output+ (&rest vars)
+  (let ((format (make-string-output-stream)))
+    (dolist (_ vars)
+      (write-string "~a:	~a~2%" format))
+    `($output ,(get-output-stream-string format)
+              ,@(mapcan λ`(',_ ,_) vars))))
+
+;; (defun manifest (&key (port 6666))
+;;   (manifest:start :port port))

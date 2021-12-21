@@ -6,9 +6,9 @@
 14 	 Timers	=> setTimeout/setInterval without make a new sleep thread
 
 (schedule-timer (make-timer (^()
-                              (write-line "Hello, world")
-                              (force-output)))
-                2)
+(write-line "Hello, world")
+(force-output)))
+2)
 
 (require :sb-concurrency)
 17.2 sb-concurrency
@@ -50,5 +50,8 @@ Second value will be t if return normally, else(timeout) nil"
           (values default-value nil)
           (values value t)))))
 
-
+(defun search-threads (keyword)
+  (filter λ(=> (slot-value _ 'sb-thread::name)
+               (search keyword ~))
+          (sb-thread::list-all-threads)))
 

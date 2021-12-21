@@ -17,3 +17,5 @@
       (incf x unit))
     (decimal s power)))
 
+
+(exp (* pi #c(0 1)))	;; => -1

@@ -1,14 +1,5 @@
 (in-package :celwk)
 
-(defmacro with-gensyms ((&rest syms) &body body)
-  "(&rest syms) equals to syms
- Just make it more readable, it should be a list"
-  `(let ,(loop for n in syms collect `(,n (gensym)))
-     ,@body))
-;; (defmacro with-gensyms (syms &body body)
-;;   `(let ,(mapcar #'(lambda (s) `(,s (gensym))) syms)
-;;      ,@body))
-
 (defmacro defconst (name value &optional desc)
   `(if (constant? ',name)	;; boundp
        ,name
@@ -33,58 +24,21 @@
 
 (defsymbol ~)	;; Declare in this package ONLY ?!
 ;; (defconst _ ~)
+;; (defsymbol _)
+(defparameter _ '_)
 
-
-
-
-(defmacro for (var start stop &body body)
-  "(for n 1 10 (output \"Current: ~a~%\" n)) => INCLUDING 1 and 10"
-  (with-gensyms (gstop)
-    `(do ((,var ,start (1+ ,var))
-          (,gstop ,stop))
-         ((> ,var ,gstop))
-       ,@body)))
-
-(defmacro in (obj &rest choices)
-  "So no need to eval every choice, stop as soon as found. Return: OBJ in CHOICES ?"
-  (let ((insym (gensym)))
-    `(let ((,insym ,obj))
-       (or ,@(mapcar (^(c) `(eql ,insym ,c))
-                     choices)))))
-
-(defmacro until (test &rest body)
-  `(do ()
-       (,test)
-     ,@body))
-(defmacro while (test &rest body)
-  `(until (not ,test) ,@body))
-;; (defmacro while (condition &body body)
-;;   `(loop
-;;       (unless ,condition (return))
-;;       ,@body))
-
-
-;; Create #'fn & fn at the same time  (setf (symbol-function 'name) lambda)
-(defmacro defun+ (fn (&rest args) &body body)
-  "Build a function with function symbol and variable with the same name FN:
-(FN ...) and (funcall FN ...) are OK"
-  `(progn
-     (defun ,fn (,@args)
-       ,@body)
-     (fn+ ,fn)))
 
 (defmacro name-lambda (fname vname)
   `(setf (symbol-function ',fname) ,vname))
+
+(defmacro alias-function (new old)
+  `(setf (symbol-function ',new) #',old))
 
 (defmacro fn+ (fn)
   "Create a funciton parameter of function FN
   (fn a b c) => (call fn a b c), instead of (call #'fn a b c) "
   `(defparameter ,fn #',fn))
 
-(defmacro defun& (fn)
-  "Defin an identical function of the var FN
-  (funcall fn a b c) => (fn a b c)"
-  `(setf (symbol-function ',fn) ,fn))
 
 (defmacro random-choice (&rest exprs)
   "Similar as above, no need to eval every one, can't do it with function"
@@ -125,7 +79,6 @@
 ;; "Can"
 ;; can> ln
 ;; 3
-
 
 
 (defmacro or! (&rest exprs)

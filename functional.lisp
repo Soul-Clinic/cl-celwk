@@ -53,18 +53,33 @@
 ;; => (1 3 5 :rest (8 9 999) :k1 kk1 :k2 kk2)
 
 
-(defun memorize~ (fn &optional test)	;; test maybe provided of nil
-  "Memorize means in virtue of previous Experience..."
-  (let ((cache (make-hash-table :test (or test #'equal))))	;; Closure
-    %(multiple-value-bind (value cached?) (gethash * cache)
-        (values-list (if cached?
-                         value ;;(and (princ "Cached") val)
-                         (setf (gethash * cache)
-                               (multiple-value-list (apply fn *))))))))
+(defun memorize~ (fn &key (test #'equal) timeout)	;; test maybe provided of nil
+  "Memorize means in virtue of previous Experience...
+ Optimize timeout! (2020/8/7)"
+  (let ((cache (make-hash-table :test test)))	;; Closure
+    #'(lambda (&rest params)
+        (multiple-value-bind (value cached?) (gethash params cache)
+          ;; => values-list to save other values!
+          (values-list (cond (cached? value)
+                             (t (prog1
+                                    (setf (gethash params cache)
+                                          (multiple-value-list (apply fn params)))	;; Return this
+                                  (when timeout
+                                    (set-time-out timeout (remhash params cache)))))))))))
 
-(defmacro build-memorized (new fn &optional (test 'equal))
+(defmacro build-memorized (new fn &key timeout)
   "Memorize function FN to function NEW"
-  `(setf (symbol-function ',new) (memorize~ #',fn #',test)))
+  `(setf (symbol-function ',new) (memorize~ #',fn :timeout ,timeout)))
+
+(defmacro defun~ (name (&rest args) &body code)
+  "(defun~ product=>json (pid)
+     (postgres-call (:product-info-json pid) :single))"
+  (with-gensyms (fname)
+    `(progn
+       (defun ,fname ,args ,@code)
+       (build-memorized ,name ,fname))))
+
+
 
 (defun reversed~ (fn)
   %(apply fn (nreverse *)))
@@ -78,30 +93,34 @@
         (fetch init))))
 
 (defun compose~ (&rest fns)
-  (let ((fn1 (last* fns))
+  (let ((fn1 (last1 fns))
         (other-fns (butlast fns)))
     %(reduce #'call other-fns
-              :from-end t
-              :initial-value (apply fn1 *))))
+             :from-end t
+             :initial-value (apply fn1 *))))
 
 (defun pipe~ (&rest fns)
   (apply 'compose~ (nreverse fns)))
 
-(defun always~ (x) (^(&rest args) (declare (ignore args)) x))
+(<=> constantly always~)
+;; (defun always~ (x) (^(&rest args) (declare (ignore args)) x))	Already has (constantly ...)
 
 (defun is~ (x &key (test #'equal))
-  $(call test x $1))
+  λ(call test x _))
 
 (@defun in~ (&rest sequence &key (test #'equal))
-  "(call (in~ 1 2 :test $(= $ (* $2 10)) 3 4 5) 40) => 4"
-  $(find $1 sequence :test test))
+  "(call (in~ 1 2 :test $(= $1 (* $2 10)) 3 4 5) 40) => 4"
+  λ(find _ sequence :test test))
 
 (defun bind~ (fn &rest params)
   "(call (bind~ '+ 6 7) 10) "
   %(apply fn (append params *)))
 
 (defun count-args (fn)
+  "The REQUIRED arg count"
   (count-general-args (sb-introspect:function-lambda-list fn)))
+
+(<=> count-args required-argcount)
 
 (defun curry~ (fn &rest init)
   "Use ~ for placeholder:
@@ -116,42 +135,105 @@
 
 (defun call-compose (&rest fns+arg)
   "Compose all the function except the last, which is the arg of the second last"
-  (let ((arg (last* fns+arg))
+  (let ((arg (last1 fns+arg))
         (fns (butlast fns+arg)))
-    (call (apply '<~ fns) arg)))
+    (call (apply 'compose~ fns) arg)))
 
 (defun call-pipe (arg &rest fns)
   "The first one is arg of the piping functions => curry + pipe "
-  (call (apply '~> fns) arg))
+  (call (apply 'pipe~ fns) arg))
 
 
 (<=> curry~ *~)
-(<=> compose~ <~)
-(<=> pipe~ ~>)
-;; (<=> call-compose <<)
-;; (<=> call-pipe >>)
+;; (<=> compose~ <~)
+;; (<=> pipe~ ~>)
 
-(defmacro => (init &rest codes)
-  "~ for arg and can be recursive/embed"
-  (unless codes
-    (return-from => init))
-  (destructuring-bind (next . others) codes
-    (when (atom? next) ; a function variable
-      (setf next `(call ,next ~)))
-    (when (find (car next) '(quote function))	;; => 'func #'func func are all OK
-      (setf next `(,(second next) ~)))
-    (unless (find ~ next)
-      (insert* ~ next))
-    `(=> ,(substitute init ~ next) ,@others)))    ;; Can't use subst, should not deep replace
+(defun deep-find-atom (fn tree)
+  "Deep find-if for atom"
+  (if (atom? tree)
+      (if (call fn tree) tree)
+      (or (deep-find-atom fn (car tree))
+          (if* (cdr tree)
+               (deep-find-atom fn it)))))
+(defun deep-find (item tree)
+  (deep-find-atom λ(eql _ item) tree))
+
+(defmacro => (first &rest code-list)
+  (unless code-list
+    (return-from => first))
+
+  (destructuring-bind (next . others) code-list
+    (when (atom? next) 								; A variable  '#'fn or ''fn is not atom! 'fn is
+      (setf next (list 'call next ~)))
+    (when (find (car next) '(quote function))		; => 'func #'func func are all OK
+      (setf next (list (second next) '~)))
+
+    (let* ((safe~ (deep-items-beyond '(=> -> >> << <- ~> <~) ~ next))	;; => -> <- ~> <~ 
+           (count (length safe~)))
+
+      (cond ((= count 1) (setf (deep-nth (caar safe~) next) first))
+            ((> count 1) (setf next
+                               (let ((args (ntimes count #'gensym)))
+                                 (dotimes (n count)
+                                   (setf (deep-nth (car (nth n safe~)) next) (nth n args)))
+                                 `(multiple-value-bind ,args ,first ,next))))
+            (t (warn "No placeholder ~~: ~s  ~%" next)))
+
+      `(=> ,next ,@others))))
+
+
+(alias -> =>)
+(defmacro <- (&rest body)
+  `(=> ,@(reverse body)))	;; Don't nreverse
+
+;; (alias <~ <-)
 (alias >> =>)
+(alias << <-)
+(defmacro ~> (init &rest code-list &aux (rest (gensym "REST-")) lambda?)
+  "Init may be
+  Function symbol: (=> #'func ...)
+  Function var:    (=> fn1 ...)
+  lambda: (=> (list 1 2 _ _) ...)	_ is the arg placeholder 
+It will calculate the arg list intelligently...
+(call (~> (* _ _) (+ 1 ~) (* 3 ~)) 12 2) => 75"
+  (setf init (copy-tree init))
 
-(defmacro << (&rest codes)
-  `(=> ,@(nreverse codes)))
+  (cond
+    ((and (list? init)		; Function symbol, e.g #'func
+          (find (car init) '(quote function)))	
+     (let ((required-args (count-args (cadr init))))	; 
+       (setf init `(apply ,init ,@(repeat required-args _) ,rest))))
+    
+    ((atom? init)			; Function lambda var
+     (let ((required-args (count-args (symbol-value init))))
+       (setf init `(apply ,init ,@(repeat required-args _) ,rest))))
+    (t (setf lambda? t)))	;	(+ 10 (call fn1 _))
 
-;; (defmacro *~~ (fn &rest init)
-;;   "Like curry~, but the first arg of fn can be a symbol without #\'.
-;; So FN must be name of function, can't be a function variable name "
-;;   `(*~ ,(output-symbol fn) ,@init))
+  (let* ((safe~ (deep-items-beyond '(~> <~) _ init))
+         (count (length safe~))
+         (args (ntimes count #'gensym)))
+
+    (dotimes (n count)
+      (setf (deep-nth (car (nth n safe~)) init) (nth n args)))
+
+    `(lambda (,@args ,@(unless lambda? `(&rest ,rest)))
+       (=> ,init ,@code-list))))
+
+(defmacro <~ (&body code-list)
+  `(~> ,@(reverse code-list)))
+
+
+
+;; '(>> ~> << <~)
+
+;; (alias >> =>)
+;; (alias -> =>)
+
+;; (defmacro << (&rest codes)
+;;   `(=> ,@(nreverse codes)))
+
+;; (alias <- <<)
+
 
 
 (defmacro memorize-curry (fn (currying-fn &rest init))
@@ -163,29 +245,28 @@
 
 ;; Complement
 ;; Create a fn's Complement function
-;; (~ fn) => (~fn x y ...) = (not (fn x y ...))
-(defmacro ~ (fn)
+;; (!~ fn) => (~fn x y ...) = (not (fn x y ...))
+(defmacro !~ (fn)
   "Build a complement function of FN with name ~FN"
   `(defun+ ,(read-from-string (concat "~" (symbol-name fn))) (&rest args)
      (apply (complement #',fn) args)))
-
 
 (defun and~ (&rest fns)
   "Intersect of functions
 (call (and~ (*~ '> ~ 2) (*~ '< ~ 10)) 19) => nil
 (call (and~ (*~ '> ~ 2) (*~ '+ ~ 10)) 7)  => 17 "
   %(let (y)
-      (dolist (fn fns y)
-        (setf y (apply fn *))
-        (unless y (return)))))
+     (dolist (fn fns y)
+       (setf y (apply fn *))
+       (unless y (return)))))
 
 (defun or~ (&rest fns)
   "Union functions
 (call (or~ $(> $1 2) $(+ $1 10)) -19) => -9
 (call (or~ $(> $1 2) $(+ $1 10)) 7)   => t"
   %(dolist (fn fns)
-      (if* (apply fn *)
-           (return it))))
+     (if* (apply fn *)
+          (return it))))
 
 (defun fetch (fn-or-value &rest args)
   "Get the value. Examples: (fetch 123) (fetch #'now)"
@@ -193,6 +274,6 @@
       (apply fn-or-value args)
       fn-or-value))
 
-(defun function-name (fn)
+(defun func-name (fn)
   (string-downcase (symbol-name (nth-value 2 (function-lambda-expression fn)))))
 

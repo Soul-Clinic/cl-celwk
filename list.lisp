@@ -1,25 +1,25 @@
 (in-package :celwk)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun repeat (n e &aux lst)
-    "(repeat 3 ~) => (~ ~ ~)"
-    (dotimes (i n lst)
-      (push e lst))))
 
-(defun mklist (obj)
-  (if (list? obj) obj (list obj))) ;; => (call (if~ 'atom 'list 'identity) obj)
+(<=> position index-of)
 
-(defun append1 (lst obj) 		;; Unchange lst
-  (append lst (list obj)))
+(defmacro~ insert-list (~lst lst2)
+  `(setf ,~lst (nconc ,~lst ,lst2)))
 
-(defmacro insert* (obj lst)   	;; Update lst
-  "Upldate the LST"
-  `(setf ,lst (nconc ,lst (list ,obj))))
+(defun anyone (lst)
+  (elt lst (random (length lst))))
 
-(defmacro insert-list (lst lst2)
-  (with-gensyms (gst)
-    `(let ((,gst ,lst))
-       (setf ,gst (nconc ,gst ,lst2)))))
+(defun anysome (lst count)
+  (let ((total (length lst))
+        (temp (copy-list lst))
+        indexes x)
+    (dotimes (_ (min total count) indexes)
+      (setf x (anyone temp))
+      (setf temp (delete x temp :count 1))
+      (push x indexes))))
+
+
+
 
 (defun trim-list (lst &key (item "") (test #'equal))
   "Even the ITEM is in the mid of LST, remove it as well(remove empty items)"
@@ -31,10 +31,8 @@
     (and index
          (= index (- (length string) (length suffix))))))
 
-(defun last* (lst)
-  (car (last lst)))
-
 (defun unified-elements? (lst &optional (test 'equal))
+  "All items are equal"
   (not (find-if-not $(call test (aref lst 0) $1) lst)))
 
 (defun same-length? (&rest lists)
@@ -74,9 +72,9 @@
 (defun group-by (fn lst &key (test #'equal) (out #'list))
   (let ((hash (make-hash-table :test test)))
     (mapc $(let ((key (call fn $1)))
-              (unless (gethash key hash)
-                (setf (gethash key hash) ()))
-              (push $1 (gethash key hash)))
+             (unless (gethash key hash)
+               (setf (gethash key hash) ()))
+             (push $1 (gethash key hash)))
           lst)
     (loop for k being the hash-keys in hash using (hash-value v)
        collect (call out k v))))
@@ -86,111 +84,24 @@
 
 
 
-;; (flatten '(1 (6 7 2) 3 4 (4 (5 6 ) nil (1 ( 3 (5 6)) 9))))
-;; => (1 6 7 2 3 4 4 5 6 1 3 5 6 9)
-
-;; Sun Jan  5 12:10:24 2020
-(defun flatten1 (lst &aux $lst)
-  (call (self (x)
-          (if (list? x)
-              (mapcar #'self x)
-              (push x $lst)))
-        lst)
-  (nreverse $lst))
-
-(defun flatten2 (x)
-  (call (self (x acc)
-          (cond ((null x) acc)
-                ((atom x) (cons x acc))
-                (t (self (car x) (self (cdr x) acc)))))
-        x nil))
-
-(defun flatten3 (tree)
-  (if (atom tree)
-      (mklist tree)
-      (nconc (flatten (car tree))
-             (if (cdr tree) (flatten3 (cdr tree))))))
-;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-(defun deep-remove-if (test tree)
-  "filter+ is more powerful with trees instead of MUST single"
-  (let ($lst)
-    (dolist (x tree (nreverse $lst))
-      (if (atom? x)
-          (unless (call test x) (push x $lst))
-          (push (deep-remove-if test x) $lst)))))
-;; (prune #'evenp '(1 2 (3 (4 5) 6) 7 8 (((12))) (13) 22 (20) (9)))
-;; => (1 (3 (5)) 7 ((nil)) (13) nil (9))
-
-;; Sun Jan  5 12:10:36 2020
-;; (map+ (^(x y) (* y x)) '(10 2 3 (5 9 10) 9 (5 (6 6))) '(1 2 3 (5 9 10) 9 (5 (6 6))))
-;; => (10 4 9 (25 81 100) 81 (25 (36 36)))
-
-;; ======================================================================
-(defun map+ (fn &rest lsts)
-  "Deeply mapcar "
-  (apply #'mapcar %(if (atom? (car *))
-                        (apply fn *)
-                        (apply #'map+ fn *))
-         lsts))
-;; Sun Jan  5 18:38:04 2020
-;; (filter+ #'> '(1 2 3 (4 11 15) (4) 12 11) '(-1 2 3 (2 1 5) (-4) 12 21))
-;; ( 1 (4 11 15) ( 4))
-;; (-1 (2  1  5) (-4))
-(defun filter+ (test &rest trees)
-  "Deep filter, filter the list element in lists as well"
-  (labels ((self (fn &rest lsts)
-             (let* (($count (length lsts))
-                    ($output (repeat $count '())))
-               (dotimes (i (length (car lsts)))
-                 (let ((items (mapcar $(nth i $1) lsts)))
-                   (if (atom? (car items))
-                       (when (apply fn items)
-                         (dotimes (n $count)
-                           (push (nth n items) (nth n $output))))
-                       (setf $output
-                             (mapcar (^(a b) (push a b)) (apply #'self fn items) $output))))) ;; push is a macro
-               (mapcar #'nreverse $output))))
-    (values-list (apply #'self test trees))))
-
-(defun parallel+ (&rest lsts)
-  "Deep collect each item from lsts
-  (parallel+ '(1 2 (3 4) 5) '(a b (c d) e) '(x x (x x) x))
-  => ((1 a x) (2 b x) ((3 c x) (4 d x)) (5 e x))"
-  (apply #'mapcar %(if (atom? (car *))
-                        *
-                        (apply #'parallel+ *))
-         lsts))
-
-
 (defun remove-duplicate (lst &key (test #'equal)) ;; unique
   (call (reduce~ (^(x next) (adjoin x (call next) :test test))) lst))
 
-(defun find-atom+ (fn tree)
-  "Deep find-if for atom"
-  (if (atom? tree)
-      (if (call fn tree) tree)
-      (or (find-atom+ fn (car tree))
-          (if* (cdr tree)
-               (find-atom+ fn it)))))
-
 ;; ======================================================================
 
 
-(defun 1-to (n &optional (fn 'identity))
-  " (n-times 3 $(+ 2 $1) t) => (3 4 5)  from 1 to n"
-  (let ((c (count-args fn)))
-    (mapcar $(apply fn (when (= c 1) (list $1))) (series n))))
-
-(defun 0-below (n)
-  (loop for i below n collect i))
-
-
+(defmacro define-nth-values (count)
+  "Generate first/second/third...COUNTth-value macro"
+  `(progn
+     ,@(0-below count (^(n)
+                        `(defmacro ,(read-from-format "~:r-value" (1+ n)) (value)
+                           `(nth-value ,,n ,value)))))) 
+(define-nth-values 10)
 
 (defmacro collect-times ((var count) &body body)
   `(let (it)
      (dotimes (,var ,count it)
        ,@body)))
-
 
 (defun filled-list (lst filler
                     &optional (placeholder ~)
@@ -208,8 +119,6 @@
       (setf (nth pos lst) i)
       (setf start (1+ pos)))))
 
-
-
 (defmacro self-sort (lst fn)
   "(self-sort lst #'>) => (setf lst (sort lst #'>))"
   `(setf ,lst (sort ,lst ,fn)))
@@ -221,3 +130,78 @@
          (rest (subseq lst (length matched))))
     (values matched rest)))
 
+(defun find-in-depths (depths lst)
+  "(find-in-depths '(2 0) '(b c (a d))) => a"
+  (reduce (reversed~ 'nth)
+          depths
+          :initial-value lst))
+
+(defun deep-remove-if (test tree)
+  "deep-remove-if is more powerful with trees instead of MUST single"
+  (let ($lst)
+    (dolist (x tree (nreverse $lst))
+      (if (atom? x)
+          (unless (call test x) (push x $lst))
+          (push (deep-remove-if test x) $lst)))))
+;; (prune #'evenp '(1 2 (3 (4 5) 6) 7 8 (((12))) (13) 22 (20) (9)))
+;; => (1 (3 (5)) 7 ((nil)) (13) nil (9))
+
+;; Sun Jan  5 18:38:04 2020
+;; (deep-filter #'> '(1 2 3 (4 11 15) (4) 12 11) '(-1 2 3 (2 1 5) (-4) 12 21))
+;; ( 1 (4 11 15) ( 4))
+;; (-1 (2  1  5) (-4))
+
+
+(defun deep-filter (test &rest trees)
+  "Deep filter, filter the list element in lists as well"
+  (labels ((self (fn &rest lsts)
+             (let* (($count (length lsts))
+                    ($output (repeat $count '())))
+               (dotimes (i (length (car lsts)))
+                 (let ((items (mapcar (^(x) (nth i x) lsts))))
+                   (if (atom? (car items))
+                       (when (apply fn items)
+                         (dotimes (n $count)
+                           (push (nth n items) (nth n $output))))
+                       (setf $output
+                             (mapcar (^(a b) (push a b)) (apply #'self fn items) $output))))) ;; push is a macro
+               (mapcar #'nreverse $output))))
+    (values-list (apply #'self test trees))))
+
+(defun deep-parallel (&rest lsts)
+  "Deep collect each item from lsts
+  (deep-parallel '(1 2 (3 4) 5) '(a b (c d) e) '(x x (x x) x))
+  => ((1 a x) (2 b x) ((3 c x) (4 d x)) (5 e x))
+  (pairlis ..) only take 2 lsts and genera (a . b), NOT (a b)"
+  (apply #'mapcar %(if (atom? (car *))
+                       *
+                       (apply #'deep-parallel *))
+         lsts))
+
+(defmacro times (code &optional (n 4) (display-result? t))
+  "Check the spent times for running CODE N times"
+  (when (< n 20)
+    (setf n (expt 10 n)))
+  `(progn
+     (output "~%[ ~r times ]~2%" ,n)
+     (time (dotimes (__ (- ,n ,(if display-result? 1 0))) ,code))
+     ,(if display-result? code '(values))))
+
+
+
+;; (<< 'string-downcase
+;;     'to-css-rgb
+;;     (mapcar (>> (/ ~ count) 'convert->nearer)	;; <- TODO: Replace ~> to >> ?? Optimize that macro!
+;;             (list r+ g+ b+)))
+
+(defun splice (list &key (start 0) (end (length list)) new)
+  "Like JavaScript's splice"
+  (setf list (cons nil list))                  ;; add dummy cell
+  (let ((reroute-start (nthcdr start list)))
+    (setf (cdr reroute-start)
+          (nconc (make-list (length new))      ;; empty cons cells
+                 (nthcdr (- end start)         ;; tail of old list
+                         (cdr reroute-start)))
+          list (cdr list)))                    ;; remove dummy cell
+  (replace list new :start1 start)             ;; fill empty cells
+  list)

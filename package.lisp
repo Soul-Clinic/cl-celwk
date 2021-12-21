@@ -1,44 +1,70 @@
 (require 'sb-introspect)
 
 (defpackage :celwk
-  (:use :cl
-        :cl-ppcre
-        :cl-json
-        :sb-concurrency
-        :sb-thread)
+  (:use #:cl
+        #:cl-ppcre
+        #:cl-json
+        #:sb-concurrency
+        #:sb-thread)
   (:nicknames := :can :mine :own :kit)
   (:export
    ;; Alias
    #:call
    #:where #:filter
-   #:input #:output
+   #:input
+   #:fmt
+   #:output
+   ;; => Namespace
+   #:+mac?+
+   #:+which-mac+
+   #:+cloud?+
+   #:+home+
+   #:+projects+
+   #:+ubuntu?+
+   #:+centos+
+   #:+linux?+
+   #:+linux-system+
+   #:+system+
+   
    ;; => Basic
    #:progns
    #:@doc
    #:ends-with?
    #:concat-codes
-
+   #:mapcar-with-index
+   #:define   
    #:alias
    #:mac
    #:mac+
    #:^
+   #:~
+   #:_
    #:desc
+   #:decc
+   #:man
    #:desv
    #:<=>
 
    ;; => Data
    #:lish :list-hash #:lash
    ;; #:to-json
-
+   #:plist-rows-json
+   #:set-time-out
+   #:set-interval
+   #:clear-last-interval
+   #:clear-last-timeout
+   
    #:sesh
 
    ;; => Debug
    #:manifest
-
+   #:$output
+   #:output+
    #:with-time
    #:io
 
    ;; => File
+   #:copy-file
    #:files-with-suffix
    #:file-size
    #:read-file
@@ -60,13 +86,15 @@
    #:memorize~
    #:reversed~
    #:curry~   #:*~
-   #:compose~ #:<~
-   #:pipe~	  #:~>
+   #:compose~ 
+   #:pipe~	  
    #:call-pipe 	  
    #:call-compose
 
-   #:>>	#:=>
-   #:<<
+   #:>> #:-> #:=>
+   #:<< #:<-
+   #:~>
+   #:<~
 
    #:always~
    #:is~
@@ -75,27 +103,32 @@
    #:and~
    #:or~
    #:fetch
-   #:function-name
+   #:func-name
 
    #:@defun ;; With &key and &rest exclusive
    #:defun+ ;; Define a function with same name function parameter
    #:defun&
+   #:defun~
+   #:defmacro~
    
    #:build-memorized
-   #:pipe*
-   #:compose*
    #:memorize-curry
-   #:~
+   #:!~
 
    ;; => List
+   #:anyone
+   #:anysome
    #:repeat
    #:mklist
+   #:mkint
+   #:assure-list
+   #:index-of
    #:append1
    #:1-to
    #:0-below
    #:trim-list
    #:suffix-with?
-   #:last*
+   #:last1
    #:unified-elements?
    #:same-length?
    #:separate-list
@@ -103,21 +136,30 @@
    #:single?
    #:group-by
    #:flat?
-   #:flatten1
-   #:flatten2
-   #:flatten3
+   #:splice
+   #:dohash
+   #:deep-list-items
+   #:find-in-depths
+   #:print-list
+
+   ;; #:flatten1
+   ;; #:flatten2
+   ;; #:flatten3
+
    #:deep-remove-if
    #:deep-mapcar
-   #:map+
-   #:filter+
-   #:parallel+
+   #:deep-map
+   #:deep-filter
+   #:deep-parallel
+   #:deep-find-atom
+   
    #:reduce~
    #:remove-duplicate
-   #:find-atom+
    #:series
    #:n-times
    #:filled-list
 
+   #:insert
    #:insert*
    #:insert-list
    #:collect-times
@@ -125,21 +167,27 @@
 
    ;; => Macro
    #:if*
+   #:while*
+   #:when*
    #:if~
    #:if+
    #:ifnil!
    #:ifnils!
-   
+   #:let1
+
+   ;; => Symbol
+   #:symbol-with-keys
    #:symbol-to-key
    #:symbol-of-symbol
    #:key-to-symbol
+   #:key-to-string
    #:sharpened-symbol
    #:quoted-symbol
    #:with-gensyms
+   #:once-only
    #:defconst
    #:defsymbol
-   #:for
-   #:in
+   ;; #:in
    #:until
    #:while
    #:fn+
@@ -148,6 +196,7 @@
    #:nil!
    #:t!
    #:opposite!
+   #:o!
    #:self
    #:alias-macro
 
@@ -158,8 +207,10 @@
 
    ;; => Shell
    #:shell
+   #:run
    #:cmd
-   ;; #:weplant
+   ;; #:weplan
+   #:shell-input
    #:psql
    #:program-stream
 
@@ -172,18 +223,34 @@
    ;; => String
    #:empty-string?
    #:string-join
+   #:split-trim
+   #:trim
+   #:lisp->camel
+   #:symbol->camel
+   #:camel->lisp
    #:string-repeat
    #:string-of-code
    #:wrapped-code
    #:join
-   #:@reglax
+   #:aesthetic
+   #:@reglax	; function
+   #:@replex ; macro
    #:replace-string
+   #:to-simple-string
+   #:insure-string
 
-   #:read-strings
+   #:read-output-string
+   #:read-from-format
+   #:multiple-json-bind
    #:concat #:concat-string #:concat-list #:concat-vector
-   #:@replex
 
    ;; => Style
+   #:notany?
+   #:any?
+   #:every?
+   #:notevery?
+   #:some?
+   
    #:end->?
    #:bool=>?
    #:end=>?
@@ -233,16 +300,15 @@
    #:fn? #:function?
 
    ;; => Syntax
+   #:restore-syntax
+   #:celwk-syntax
    #:ntimes
    #:flatten
    #:symbol-int
    #:parse-to-lambda
    #:dollar-sign
    #:ddfn
-
-   #:$cancel-dispatch-macor-char
-   #:$cancel-macor-char
-   #:$stop-macro-chars
+   #:times
    
    #:collect-list
    #:delimit
@@ -250,22 +316,69 @@
    ;; => Threads
    #:race
    #:limit-time-call
+   #:search-threads
 
 
    ;; => Tools
+   #:pull-lisp-projects
    #:2d-array-to-list
    #:code-define-list
    #:export-all
+   #:assure-json-string!
+   #:assure-string!
+   #:json-file
+   #:upload-images-to-server
 
    #:ppmx
+   #:pmx
    #:bound-type
    #:vprint
    #:second-value
 
+   ;; => Wtacher
+   #:watch-file
+   #:unwatch-file
+   
    ;; => Trivial
+   #:toggle!
+   #:!!!
+   #:machine
    #:local-time
    #:time-of-universal
+   #:date-of-universal
    #:now
+   #:now*
+   #:pretty-time
 
    ;; => Math
-   #:calculus))
+   #:calculus
+
+   ;; => hash
+   #:gesh
+   #:hash-keys
+   #:hash-values
+   #:sesh
+   #:with-json-object
+   #:*debug?*
+   #:deep-cars
+   #:gesh-bind
+
+   #:file-suffix
+
+   ;; => Images
+   #:image-file-name
+   #:image-average-color
+   #:image-size
+   #:resize-image
+   #:rename-images
+   #:file-type
+   #:rename-image
+   #:defun
+   #:pretty-time
+   #:only-time
+   #:nearer-max
+   #:set.hash
+   #:only-time
+
+   ;; => class
+   #:object-fields))

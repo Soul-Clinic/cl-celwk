@@ -5,7 +5,14 @@
 (<=> remove-if-not where filter)
 (<=> atom atom?)
 (<=> null null?)
+(<=> null nil?)
+
 (<=> notany never?)
+(<=> some some?)
+(<=> some any?)
+(<=> every every?)
+(<=> notevery notevery?)
+
 (<=> complement !)
 (<=> functionp function? fn?)
 (eval-when (:compile-toplevel :load-toplevel :execute)
