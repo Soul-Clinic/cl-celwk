@@ -59,6 +59,7 @@
    ;; => Debug
    #:manifest
    #:$output
+   #:$error
    #:output+
    #:with-time
    #:io
@@ -242,7 +243,7 @@
    #:read-output-string
    #:read-from-format
    #:multiple-json-bind
-   #:concat #:concat-string #:concat-list #:concat-vector
+   #:concat #:concat-string #:concat-list #:concat-vector #:string+
 
    ;; => Style
    #:notany?
@@ -381,4 +382,10 @@
    #:only-time
 
    ;; => class
-   #:object-fields))
+   #:object-fields
+   ;; => process
+   #:save-pid
+   #:suicide
+   #:set-signal-handler
+   
+   ))

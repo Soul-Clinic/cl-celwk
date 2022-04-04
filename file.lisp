@@ -22,14 +22,15 @@
 
 (defun read-file (file &rest open-args)
   (unless (find :external-format open-args)
-    (setf open-args (nconc '(:external-format :utf-8) open-args)))	;; default :utf-8 for emoji char
+    (setf open-args (nconc (list :external-format :utf-8) open-args)))	;; default :utf-8 for emoji char
   (with-open-stream (stream (apply 'open file open-args))
-    (let* ((buffer (make-array (file-length stream)
+    (let* ((length (file-length stream))
+           (buffer (make-array length
                                :fill-pointer t
                                :element-type (stream-element-type stream)))
            (position (read-sequence buffer stream)))
       (setf (fill-pointer buffer) position)	;; Remove the end irrelevant chars
-      buffer)))
+      (values buffer length))))
 
 (defun write-to-file (file data &key readonly)
   (with-open-file (stream file

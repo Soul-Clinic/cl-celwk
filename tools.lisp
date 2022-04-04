@@ -123,9 +123,9 @@
 
 
 (defmacro set-interval (second &body codes)
-  "Use (sb-thread:terminate-thread thread) to terminate it; `sb-thread:terminate-thread' to stop"
+  "Use (sb-thread:terminate-thread thread) to terminate it;"
   `(push (sb-thread:make-thread $(loop ,@codes
-                                     (sleep ,second)))
+                                         (sleep ,second)))
          *last-interval*))
 
 

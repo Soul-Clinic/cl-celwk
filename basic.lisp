@@ -3,7 +3,11 @@
 ;; (defconstant +next-line+ "
 ;; ")
 
-(format t "~&Welcome 😼  !!~%")
+(format t "
+======================
+Welcome 😼
+pid: ~A
+======================~%" (sb-posix:getpid))
 (setf *print-case* :downcase)
 ;; (setf *print-case* :downcase)	;; Care!! cl-base64 comment it first
 

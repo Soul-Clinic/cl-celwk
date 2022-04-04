@@ -17,6 +17,7 @@
                :sb-concurrency
                :cl-ppcre
                :cl-gd
+               :cffi
                :com.gigamonkeys.json)
               ; :manifest)
   :serial t
@@ -45,5 +46,6 @@
                (:file "profiler")
                (:file "trivial")
                (:file "class")
+               (:file "process")
                (:file "namespace")
                (:file "final")))

@@ -84,7 +84,7 @@
     "A lambda with only ONE arg _"
     (declare (ignore char))
     (let ((codes (read stream nil)))
-      `(lambda (_) ,codes)))
+      `(lambda (&optional _) ,codes)))
 
   (set-macro-character #\λ #'lambda-char t)	; => λ(+ 1 2 _)
 

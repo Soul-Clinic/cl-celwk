@@ -18,7 +18,7 @@ write-string /write-line write-char
 ;;     (parse-json ~))
 
 (defun trim (string)
-  (string-trim '(#\Newline #\Space #\Tab) string))
+  (string-trim '(#\Newline #\Space #\Tab #\Return) string))
 
 (defmacro read-output-string (&body outputs)
   `(trim (with-output-to-string (*standard-output*)
@@ -44,6 +44,7 @@ write-string /write-line write-char
 ;; (mac (concats string list vector))
 (concats string list vector)
 (<=> concat-string concat)
+(<=> concat-string string+)
 
 (defun empty-string? (string)
   (= (length string) 0))
@@ -57,10 +58,10 @@ write-string /write-line write-char
   "The list must consist of Strings, return NIL if string-list is NIL"
   (unless string-list
     (return-from string-join nil))
-  (with-output-to-string (out)
-    (loop (princ (pop string-list) out)
+  (with-output-to-string (*standard-output*)
+    (loop (princ (pop string-list))
           (unless string-list (return))
-          (princ separator out))))
+          (princ separator))))
 ;; (let ((result (first string-list)))
 ;;   (dolist (string (rest string-list) result)
 ;;     (setf result (concat-string result separator string)))))

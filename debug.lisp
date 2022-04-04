@@ -11,11 +11,18 @@
      (input  ,fmt ,@args)))
 
 ;; @defun => defun with both &rest & &key [functional.lisp]
+;; ($output `Hello, Coder ~a` `Can` :width 70)
 (@defun $output (control-string &rest format-args &key (width 80))
-  "($output `Hello, Coder ~a` `Can` :width 70)"
   (princ (input "~2&~a~%~a~&~2:*~a~%"
-                (string-repeat "=" width)
+                (string-repeat "-" width)
                 (apply #'format nil control-string format-args))))
+
+(@defun $error (control-string &rest format-args &key (width 100))
+  (princ (input "~2&~a~%~a~&~2:*~a~%"
+                (string-repeat "*" width)
+                (apply #'format nil control-string format-args))
+         *error-output*))
+
 
 (defmacro output+ (&rest vars)
   (let ((format (make-string-output-stream)))

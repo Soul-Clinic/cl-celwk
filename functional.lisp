@@ -161,24 +161,22 @@
 (defmacro => (first &rest code-list)
   (unless code-list
     (return-from => first))
-
+  
   (destructuring-bind (next . others) code-list
     (when (atom? next) 								; A variable  '#'fn or ''fn is not atom! 'fn is
       (setf next (list 'call next ~)))
     (when (find (car next) '(quote function))		; => 'func #'func func are all OK
       (setf next (list (second next) '~)))
 
-    (let* ((safe~ (deep-items-beyond '(=> -> >> << <- ~> <~) ~ next))	;; => -> <- ~> <~ 
-           (count (length safe~)))
-
-      (cond ((= count 1) (setf (deep-nth (caar safe~) next) first))
-            ((> count 1) (setf next
-                               (let ((args (ntimes count #'gensym)))
-                                 (dotimes (n count)
-                                   (setf (deep-nth (car (nth n safe~)) next) (nth n args)))
-                                 `(multiple-value-bind ,args ,first ,next))))
-            (t (warn "No placeholder ~~: ~s  ~%" next)))
-
+    (let* ((<safe> (deep-items-beyond '(=> -> >> << <- ~> <~) ~ next))	;; => -> <- ~> <~ 
+           (<count> (length <safe>)))
+      (cond ((= <count> 1) (setf (deep-nth (caar <safe>) next) first))
+            ((> <count> 1) (setf next
+                                 (let ((args (ntimes <count> #'gensym)))
+                                   (dotimes (n <count>)
+                                     (setf (deep-nth (car (nth n <safe>)) next) (nth n args)))
+                                   `(multiple-value-bind ,args ,first ,next))))
+            (t (warn "No placeholder??: ~s  ~%" next)))
       `(=> ,next ,@others))))
 
 
@@ -209,12 +207,12 @@ It will calculate the arg list intelligently...
        (setf init `(apply ,init ,@(repeat required-args _) ,rest))))
     (t (setf lambda? t)))	;	(+ 10 (call fn1 _))
 
-  (let* ((safe~ (deep-items-beyond '(~> <~) _ init))
-         (count (length safe~))
-         (args (ntimes count #'gensym)))
+  (let* ((<safe> (deep-items-beyond '(~> <~) _ init))
+         (<count> (length <safe>))
+         (args (ntimes <count> #'gensym)))
 
     (dotimes (n count)
-      (setf (deep-nth (car (nth n safe~)) init) (nth n args)))
+      (setf (deep-nth (car (nth n <safe>)) init) (nth n args)))
 
     `(lambda (,@args ,@(unless lambda? `(&rest ,rest)))
        (=> ,init ,@code-list))))

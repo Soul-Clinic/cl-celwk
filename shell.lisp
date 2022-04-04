@@ -41,7 +41,7 @@
 
 
 
-(defun cmd (cmd &optional (output '(:string :stripped t)) (error *error-output*))
+(defun cmd (cmd &optional (output '(:string :stripped t)) (error '(:string :stripped t) #|*error-output*|#))
   "Use uiop:run-program"           
   (uiop:run-program cmd :output output :error-output error :ignore-error-status t))
 ;; Set output to '(:string :stripped t) as string, to t as *standard-output*
